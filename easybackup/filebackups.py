@@ -7,13 +7,17 @@ import tarfile
 from ConfigParser import ConfigParser
 
 help_conf = 'Location of easybackup configuration file.'
+help_group = "Specify section names to only backup one or more specific " \
+             "groups. Separate section names with ,"
+
 total_num_files = 0
 current_file_number = 0
 
 
 @click.command()
 @click.option('--conf', default='~/etc/easybackup_conf.ini', help=help_conf)
-def filebackup(conf):
+@click.option('--groups', default=None, help=help_group)
+def filebackup(conf, groups):
     if not os.path.exists(os.path.expanduser(conf)):
         raise click.ClickException('Config file does not exist.')
 
@@ -30,6 +34,9 @@ def filebackup(conf):
 
     fbackup_items = list()
     for section in parser.sections():
+        if groups and section not in groups:
+            continue
+
         group = FileBackupGroup()
         group.group_title = section
         group.base_name = parser.get(section, 'base_name')
@@ -47,6 +54,11 @@ def filebackup(conf):
         if not os.path.exists(base_path):
             os.makedirs(base_path)
 
+        # Specify the datetime prefix for the backup's file name outside
+        # of the loop so that all backup targets within this group get the
+        # same filename prefix. (exact timestamps available on the file info).
+        prefix = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
+
         for item in group.items:
             backup_source = os.path.expanduser(item.dir)
 
@@ -59,7 +71,6 @@ def filebackup(conf):
                 [os.path.join(dp, f) for dp, dn, fn in
                  os.walk(backup_source) for f in fn])
 
-            prefix = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
             postfix = backup_source.replace(os.sep, '#')
             fname = "{}__{}.tar.gz".format(prefix, postfix)
             target_path = "{}/{}".format(base_path, fname)
