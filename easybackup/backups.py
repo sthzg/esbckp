@@ -25,6 +25,7 @@ Improvements:
 
 """
 from __future__ import absolute_import, unicode_literals
+from time import sleep
 import click
 import os
 import subprocess
@@ -64,38 +65,10 @@ def start(conf, groups):
 
     :param conf: Path of configuration file, default ~/etc/easybackups_conf.ini.
     :param groups: Name of groups to backup. If left out defaults to all.
-    :return:
     """
-    if not os.path.exists(os.path.expanduser(conf)):
-        raise click.ClickException(ERR_CONFIG_FILE_DOES_NOT_EXIST)
+    backup = Backup(conf, groups)
 
-    cfg = os.path.expanduser(conf)
-
-    parser = ConfigParser()
-    parser.read([cfg])
-
-    bsd = os.path.expanduser(parser.defaults().get('backup_storage_dir'))
-
-    if not os.path.exists(bsd):
-        raise click.ClickException(ERR_BACK_STORAGE_DOES_NOT_EXIST.format(bsd))
-
-    backup_groups = list()
-    for section in parser.sections():
-        if groups and section not in groups:
-            continue
-
-        group = FileBackupGroup()
-        group.group_title = section
-        group.base_path = os.path.join(bsd, group.group_title)
-        group.base_name = parser.get(section, 'base_name')
-        group.filename_prefix = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
-        group.backup_storage_dir = bsd
-        group.dirs = extract_dirs(parser.get(section, 'dir'))
-        group.dbs = extract_databases(parser.get(section, 'db'))
-
-        backup_groups.append(group)
-
-    for group in backup_groups:
+    for group in backup.backup_groups:
         if group.dirs:
             do_file_backups_for_group(group)
 
@@ -103,13 +76,34 @@ def start(conf, groups):
             do_database_backups_for_group(group)
 
 
+@click.command()
+@click.option('--conf', default='~/etc/easybackup_conf.ini', help=HELP_CONF)
+@click.option('--groups', default=None, help=HELP_GROUP)
+def ship(conf, groups):
+    """Starts shipping the backups via rsync.
+
+    If shipper settings are present in the INI file this command rsyncs
+    each group folder to the configured target destination.
+
+    :param conf: Path of configuration file, default ~/etc/easybackups_conf.ini.
+    :param groups: Name of groups to backup. If left out defaults to all.
+    """
+    backup = Backup(conf, groups)
+
+    with click.progressbar(backup.backup_groups,
+                           length=(len(backup.backup_groups)+1),
+                           label="Groups") as bg:
+        for group in bg:
+            group.ship()
+
+
 
 # >>>>> Utils <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 def do_file_backups_for_group(group):
     """Creates tar.gz compressed backups for all backup target directories.
 
-    :param group: Instance of ``FileBackupGroup``
-    :type group: FileBackupGroup
+    :param group: Instance of ``BackupGroup``
+    :type group: BackupGroup
     """
     group.check_or_create_base_path()
 
@@ -141,8 +135,8 @@ def do_file_backups_for_group(group):
 def do_database_backups_for_group(group):
     """Creates tar.gz compressed backups for all backup target databases.
 
-    :param group: Instance of ``FileBackupGroup``
-    :type group: FileBackupGroup
+    :param group: Instance of ``BackupGroup``
+    :type group: BackupGroup
     """
     group.check_or_create_base_path()
     dbs = group.dbs
@@ -204,7 +198,42 @@ def tar_add_filter(tarinfo):
 
 
 # >>>>> Data objects <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-class FileBackupGroup(object):
+class Backup(object):
+    def __init__(self, conf, groups):
+        if not os.path.exists(os.path.expanduser(conf)):
+            raise click.ClickException(ERR_CONFIG_FILE_DOES_NOT_EXIST)
+
+        cfg = os.path.expanduser(conf)
+
+        parser = ConfigParser()
+        parser.read([cfg])
+
+        bsd = os.path.expanduser(parser.defaults().get('backup_storage_dir'))
+
+        self.backup_groups = list()
+        self.backup_storage_dir = bsd
+
+        if not os.path.exists(bsd):
+            raise click.ClickException(ERR_BACK_STORAGE_DOES_NOT_EXIST.format(bsd))
+
+        for section in parser.sections():
+            if groups and section not in groups:
+                continue
+
+            group = BackupGroup()
+            group.group_title = section
+            group.base_path = os.path.join(bsd, group.group_title)
+            group.base_name = parser.get(section, 'base_name')
+            group.filename_prefix = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
+            group.backup_storage_dir = bsd
+            group.dirs = extract_dirs(parser.get(section, 'dir'))
+            group.dbs = extract_databases(parser.get(section, 'db'))
+            group.shipper = group.populate_shipper(parser, section)
+
+            self.backup_groups.append(group)
+
+
+class BackupGroup(object):
     def __init__(self):
         self.backup_storage_dir = None
         self.group_title = None
@@ -212,11 +241,32 @@ class FileBackupGroup(object):
         self.base_name = None
         self.dirs = []
         self.dbs = []
+        self.shipper = None
         self.filename_prefix = None
 
     def check_or_create_base_path(self):
         if self.base_path and not os.path.exists(self.base_path):
             os.makedirs(self.base_path)
+
+    def populate_shipper(self, parser, section):
+        try:
+            shipper_dir = parser.get(section, 'shipper_dir')
+            source_dir = os.path.join(self.backup_storage_dir, self.group_title)
+            target_dir = os.path.join(shipper_dir)
+
+            self.shipper = Shipper()
+            self.shipper.ssh_port = parser.get(section, 'shipper_ssh_port')
+            self.shipper.user = parser.get(section, 'shipper_user')
+            self.shipper.host = parser.get(section, 'shipper_host')
+            self.shipper.source_dir = source_dir
+            self.shipper.target_dir = target_dir
+
+            return self.shipper
+        except:
+            return None
+
+    def ship(self):
+        self.shipper.ship()
 
 
 class FileBackupItem(object):
@@ -244,3 +294,27 @@ class DatabaseBackupItem(object):
             raise ValueError(ERR_DB_STRING_LENGTH.format(self.db_string))
         else:
             self.db_type, self.db_name, self.db_user = tokens
+
+
+class Shipper:
+    def __init__(self):
+        self.ssh_port = 22
+        self.user = None
+        self.host = None
+        self.source_dir = None
+        self.target_dir = None
+
+    def get_rsync_cmd(self):
+        """Builds rsync command from Shipper configuration."""
+        cmd = "rsync -rvz -e 'ssh -p {}' --progress {} {}@{}:{}"
+        return cmd.format(
+            self.ssh_port,
+            self.source_dir,
+            self.user,
+            self.host,
+            self.target_dir)
+
+    def ship(self):
+        """Ships current group to target location via rsync."""
+        cmd = self.get_rsync_cmd()
+        subprocess.call(cmd, shell=True)
