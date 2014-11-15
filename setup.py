@@ -12,5 +12,6 @@ setup(
     entry_points='''
         [console_scripts]
         easybackups_start=easybackup.backups:start
+        easybackups_ship=easybackup.backups:ship
     ''',
 )
