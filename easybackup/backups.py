@@ -178,6 +178,7 @@ def extract_dirs(val):
 
 
 def extract_databases(val):
+    """Returns a list of db connection strings."""
     items = list()
     for db in [x.strip() for x in val.split(',')]:
         # Skip when no DBs are configured in group (i.e. db is an empty string)
