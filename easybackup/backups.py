@@ -234,10 +234,10 @@ class Backup(object):
             group.filename_prefix = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
             group.backup_storage_dir = bsd
 
-            if routines and 'dir' in routines:
+            if not routines or 'dir' in routines:
                 group.dirs = extract_dirs(parser.get(section, 'dir'))
 
-            if routines and 'db' in routines:
+            if not routines or 'db' in routines:
                 group.dbs = extract_databases(parser.get(section, 'db'))
 
             group.shipper = group.populate_shipper(parser, section)
