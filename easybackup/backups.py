@@ -206,7 +206,7 @@ def tar_add_filter(tarinfo):
 
 # >>>>> Data objects <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 class Backup(object):
-    def __init__(self, conf, groups, routines):
+    def __init__(self, conf, groups, routines=None):
         if not os.path.exists(os.path.expanduser(conf)):
             raise click.ClickException(ERR_CONFIG_FILE_DOES_NOT_EXIST)
 
