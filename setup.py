@@ -11,6 +11,6 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-        easybackups_filebackup=easybackup.filebackups:filebackup
+        easybackups_start=easybackup.backups:start
     ''',
 )
