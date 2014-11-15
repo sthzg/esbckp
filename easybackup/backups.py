@@ -4,6 +4,7 @@
      Author: Stephan Herzog (sthzg@gmx.net)
        Date: November 2014
       Usage: $ easybackups_start
+             $ easybackups_ship
   Platforms: Developed on MacOS X and Cent OS
 
 Description:
@@ -41,6 +42,10 @@ HELP_GROUP = '''
 Specify section names to only backup one or more specific groups. Separate
 section names with ,'''
 
+HELP_ROUTINES = '''
+Specify the routines that should be run for this backup. Separate routines
+with comma (,), e.g. --routines=dir,db.'''
+
 ERR_CONFIG_FILE_DOES_NOT_EXIST = '''
 Config file does not exist.'''
 
@@ -60,13 +65,15 @@ current_file_number = 0
 @click.command()
 @click.option('--conf', default='~/etc/easybackup_conf.ini', help=HELP_CONF)
 @click.option('--groups', default=None, help=HELP_GROUP)
-def start(conf, groups):
+@click.option('--routines', default=None, help=HELP_ROUTINES)
+def start(conf, groups, routines):
     """Starts the backup process.
 
     :param conf: Path of configuration file, default ~/etc/easybackups_conf.ini.
     :param groups: Name of groups to backup. If left out defaults to all.
+    :param routines: Name of routines to run on backup. Defaults to all.
     """
-    backup = Backup(conf, groups)
+    backup = Backup(conf, groups, routines)
 
     for group in backup.backup_groups:
         if group.dirs:
@@ -133,7 +140,7 @@ def do_file_backups_for_group(group):
 
 
 def do_database_backups_for_group(group):
-    """Creates tar.gz compressed backups for all backup target databases.
+    """Creates compressed backups for all backup target databases.
 
     :param group: Instance of ``BackupGroup``
     :type group: BackupGroup
@@ -199,7 +206,7 @@ def tar_add_filter(tarinfo):
 
 # >>>>> Data objects <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 class Backup(object):
-    def __init__(self, conf, groups):
+    def __init__(self, conf, groups, routines):
         if not os.path.exists(os.path.expanduser(conf)):
             raise click.ClickException(ERR_CONFIG_FILE_DOES_NOT_EXIST)
 
@@ -226,8 +233,13 @@ class Backup(object):
             group.base_name = parser.get(section, 'base_name')
             group.filename_prefix = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
             group.backup_storage_dir = bsd
-            group.dirs = extract_dirs(parser.get(section, 'dir'))
-            group.dbs = extract_databases(parser.get(section, 'db'))
+
+            if routines and 'dir' in routines:
+                group.dirs = extract_dirs(parser.get(section, 'dir'))
+
+            if routines and 'db' in routines:
+                group.dbs = extract_databases(parser.get(section, 'db'))
+
             group.shipper = group.populate_shipper(parser, section)
 
             self.backup_groups.append(group)
