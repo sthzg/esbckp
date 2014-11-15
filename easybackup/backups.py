@@ -4,6 +4,7 @@
      Author: Stephan Herzog (sthzg@gmx.net)
        Date: November 2014
       Usage: $ easybackups_start
+  Platforms: Developed on MacOS X and Cent OS
 
 Description:
     Naive and simple app to backup directories and databases. Backup targets
@@ -12,6 +13,8 @@ Description:
     flag to pass a file.
 
     Type ``easybackups_start --help`` to learn about command line options.
+
+    The tool is not demonized and can be scheduled with cron jobs.
 
 Dependencies:
     * click
@@ -132,6 +135,8 @@ def do_file_backups_for_group(group):
             msg = 'Wrote {}'.format(target_path)
             click.echo(click.style(msg, fg='green'))
 
+        subprocess.call(['chmod', '0400', target_path])
+
 
 def do_database_backups_for_group(group):
     """Creates tar.gz compressed backups for all backup target databases.
@@ -146,15 +151,19 @@ def do_database_backups_for_group(group):
     with click.progressbar(dbs, label=click.style(label, fg='yellow')) as dbs:
         for item in dbs:
             if item.db_type == 'postgres':
-                cmd = 'pg_dump -Fc -U {} {} > {}/{}__{}_{}.dump'.format(
-                    item.db_user,
-                    item.db_name,
+                target_path = '{}/{}__{}_{}.dump'.format(
                     group.base_path,
                     group.filename_prefix,
                     item.db_type.lower(),
                     item.db_name.lower())
 
+                cmd = 'pg_dump -Fc -U {} {} > {}'.format(
+                    item.db_user,
+                    item.db_name,
+                    target_path)
+
                 subprocess.call(cmd, shell=True)
+                subprocess.call(['chmod', '0400', target_path])
 
 
 def extract_dirs(val):
