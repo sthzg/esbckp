@@ -306,7 +306,8 @@ class Shipper:
 
     def get_rsync_cmd(self):
         """Builds rsync command from Shipper configuration."""
-        cmd = "rsync -rvz -e 'ssh -p {}' --progress {} {}@{}:{}"
+        # TODO(sthzg) Create as list.
+        cmd = "rsync -rvz -e 'ssh -p {}' --progress --ignore-existing {} {}@{}:{}"  # NOQA
         return cmd.format(
             self.ssh_port,
             self.source_dir,
