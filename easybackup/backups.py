@@ -5,6 +5,7 @@
        Date: November 2014
       Usage: $ easybackups_start
              $ easybackups_ship
+             $ easybackups_clean
   Platforms: Developed on MacOS X and Cent OS
 
 Description:
@@ -77,12 +78,7 @@ current_file_number = 0
 @click.option('--groups', default=None, help=HELP_GROUP)
 @click.option('--routines', default=None, help=HELP_ROUTINES)
 def start(conf, groups, routines):
-    """Starts the backup process.
-
-    :param conf: Path of configuration file, default ~/etc/easybackups_conf.ini.
-    :param groups: Name of groups to backup. If left out defaults to all.
-    :param routines: Name of routines to run on backup. Defaults to all.
-    """
+    """Starts the backup process."""
     backup = Backup(conf, groups, routines)
 
     for group in backup.backup_groups:
@@ -101,9 +97,6 @@ def ship(conf, groups):
 
     If shipper settings are present in the INI file this command rsyncs
     each group folder to the configured target destination.
-
-    :param conf: Path of configuration file, default ~/etc/easybackups_conf.ini.
-    :param groups: Name of groups to ship. If left out defaults to all.
     """
     backup = Backup(conf, groups)
 
@@ -120,8 +113,11 @@ def ship(conf, groups):
 def clean(conf, groups):
     """Starts cleaning backups according to cleaner configuration.
 
-    :param conf: Path of configuration file, default ~/etc/easybackups_conf.ini.
-    :param groups: Name of groups to clean. If left out defaults to all.
+    Due to the support of weeks_to_keep and months_to_keep, there will
+    usually be one additional backup in the timespan between days_to_keep
+    and weeks_to_keep. This is because the backup according to
+    day_of_month_to_keep will not be deleted, even though in most cases
+    it will not fall on day_of_week_to_keep.
     """
     backup = Backup(conf, groups)
 
@@ -414,7 +410,9 @@ class Cleaner(object):
 
         file_dates = [x[1] for x in self.files]
 
-        outdated = self._filter_older_than_months_to_keep(file_dates)
+        cleanup_old = self._filter_older_than_months_to_keep(file_dates)
+        cleanup_months = self._filter_level_months_to_keep(file_dates)
+        cleanup_weeks = self._filter_level_weeks_to_keep(file_dates)
 
     def _filter_older_than_months_to_keep(self, file_dates, compare_time=None):
         """Returns indexes of dates that exceed months_to_keep.
@@ -456,12 +454,49 @@ class Cleaner(object):
 
         to_remove = list()
         for idx,file_date in enumerate(file_dates):
+            dt = datetime.fromtimestamp(file_date)
+
             cond1 = file_date <= youngest_date_to_compare
             cond2 = file_date >= latest_date_to_compare
+            cond3 = dt.day != self.day_of_month_to_keep
 
-            if cond1 and cond2:
-                dt = datetime.fromtimestamp(file_date)
-                if dt.day != self.day_of_month_to_keep:
-                    to_remove.append(idx)
+            if cond1 and cond2 and cond3:
+                to_remove.append(idx)
+
+        return to_remove
+
+    def _filter_level_weeks_to_keep(self, file_dates, compare_time):
+        """Returns indexes of dates between days_to_keep and weeks_to_keep
+        leaving one backup per week according to day_of_week_to_keep.
+
+        Additionally ensures that the backup according to
+        day_of_month_to_keep will not be deleted.
+
+        :param file_dates: A list of dates in unix timestamp format.
+        :param compare_time:  A datetime object to compare against.
+        :return: A list of indexes.
+        """
+        if not compare_time:
+            compare_time = time.time()
+
+        latest_date_to_compare = calendar.timegm(
+            (compare_time - timedelta(weeks=self.weeks_to_keep))
+            .timetuple())
+
+        youngest_date_to_compare = calendar.timegm(
+            (compare_time - timedelta(days=self.days_to_keep))
+            .timetuple())
+
+        to_remove = list()
+        for idx,file_date in enumerate(file_dates):
+            dt = datetime.fromtimestamp(file_date)
+
+            cond1 = file_date <= youngest_date_to_compare
+            cond2 = file_date >= latest_date_to_compare
+            cond3 = dt.day != self.day_of_month_to_keep
+            cond4 = dt.weekday() != self.day_of_week_to_keep
+
+            if cond1 and cond2 and cond3 and cond4:
+                to_remove.append(idx)
 
         return to_remove

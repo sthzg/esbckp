@@ -35,7 +35,7 @@ class TestCleaner(unittest.TestCase):
 
         for val,idx in enumerate(to_remove):
             self.assertEqual(True, self.date_list[idx] < self.compare_date_unix)
-
+            self.assertEqual(True, len(to_remove) == 184)
 
     def test_months_to_keep(self):
         """Removed dates are between weeks_to_keep and months_to_keep."""
@@ -52,6 +52,27 @@ class TestCleaner(unittest.TestCase):
                 self.date_list[idx]).day != self.cleaner.day_of_month_to_keep
 
             self.assertEqual(True, cond1 and cond2 and cond3)
+            self.assertEqual(True, len(to_remove) == 327)
+
+    def test_weeks_to_keep(self):
+        """Removed dates are between days_to_keep and weeks_to_keep."""
+        to_remove = self.cleaner._filter_level_weeks_to_keep(
+            self.date_list, self.compare_date)
+
+        youngest_date_to_compare = 1415059200  # i.e. 2014-11-04 01:00:00
+        latest_date_to_compare = 1413244800    # i.e. 2014-10-14 02:00:00
+
+        for val,idx in enumerate(to_remove):
+            cond1 = self.date_list[idx] <= youngest_date_to_compare
+            cond2 = self.date_list[idx] >= latest_date_to_compare
+            cond3 = datetime.datetime.fromtimestamp(
+                self.date_list[idx]).weekday() != self.cleaner.day_of_week_to_keep
+            cond4 = datetime.datetime.fromtimestamp(
+                self.date_list[idx]).day != self.cleaner.day_of_month_to_keep
+
+            self.assertEqual(True, cond1 and cond2 and cond3 and cond4)
+            self.assertEqual(True, len(to_remove) == 19)
+
 
 
 if __name__ == '__main__':
