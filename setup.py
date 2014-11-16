@@ -13,5 +13,6 @@ setup(
         [console_scripts]
         easybackups_start=easybackup.backups:start
         easybackups_ship=easybackup.backups:ship
+        easybackups_clean=easybackup.backups:clean
     ''',
 )
