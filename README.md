@@ -22,13 +22,25 @@
 
 ## Usage examples
 
+    # Help
+    $ esbck
+    $ esbck --help
+    
+    # Help for subcommand
+    $ esbck [command] --help
+    
     # Backups
-    $ easybackups_start --conf=~/myconf.ini  # Run all backups in conf
-    $ easybackups_start --conf=~/myconf.ini --groups=test1  # Run all backups in group [test1]
-    $ easybackups_start --conf=~/myconf.ini --routines=dir  # Run only filesystem backups.
+    $ esbck start --conf=~/myconf.ini  # Run all backups in conf
+    $ esbck start --conf=~/myconf.ini --groups=test1  # Run all backups in group [test1]
+    $ esbck start --conf=~/myconf.ini --routines=dir  # Run only filesystem backups.
     
     # Shipping
-    $ easybackups_ship --conf=~/myconf.ini  # Rsync all backups to remote location.
+    $ esbck ship --conf=~/myconf.ini  # Rsync all backups to remote location.
+    
+    # Cleaning
+    $ esbck clean --conf=~/myconf.ini # Prints paths of backups to be deleted to stdout
+    $ esbck clean --conf=~/myconf.ini --dryrun=False # Removes backups marked for deletion
+    
     
     
 ## Installation
@@ -42,9 +54,11 @@
 ## Example crons
 
     # Start backups daily at 3.30 a.m.
-    30 3 * * * source /path/to/pyvenv/bin/activate && easybackups_start --conf=/path/to/easybackups_conf.ini >> /path/to/logs/easybackups_start.log 2>&1
+    30 3 * * * source /path/to/pyvenv/bin/activate && esbck start --conf=/path/to/easybackups_conf.ini >> /path/to/logs/easybackups_start.log 2>&1
     # Ship backups daily at 4.30 a.m.
-    30 4 * * * source /path/to/pyvenv/bin/activate && easybackups_ship --conf=/path/toeasybackups_conf.ini >> /path/to/logs/easybackups_ship.log 2>&1
+    30 4 * * * source /path/to/pyvenv/bin/activate && esbck ship --conf=/path/toeasybackups_conf.ini >> /path/to/logs/easybackups_ship.log 2>&1
+    # Remove outdated backups daily at 5.30 a.m.
+    30 4 * * * source /path/to/pyvenv/bin/activate && esbck clean --dryrun=False --conf=/path/toeasybackups_conf.ini >> /path/to/logs/easybackups_ship.log 2>&1
     
 
 ## About authentication

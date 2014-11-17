@@ -7,7 +7,7 @@ from .utils import monthdelta
 
 
 class Cleaner(object):
-    """Provides functionality to remove backups base on configuration.
+    """Provides functionality to remove backups based on configuration.
 
     The relevant attributes for calculating files to delete are:
 
