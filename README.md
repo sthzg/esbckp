@@ -10,6 +10,11 @@
     shipper_user: rsync_user
     shipper_host: rsync_host
     shipper_dir: /path/to/rsync/target/dir
+    cleaner_days_to_keep: 7
+    cleaner_weeks_to_keep: 4
+    cleaner_months_to_keep: 12
+    cleaner_day_of_week_to_keep: 4
+    cleaner_day_of_month_to_keep: 15
     
     [test1]
     base_name: eb_testconf1
