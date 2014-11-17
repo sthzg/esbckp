@@ -11,6 +11,6 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-        esbckp=esbckp.backups:cli
+        esbckp=esbckp.commands:cli
     ''',
 )
