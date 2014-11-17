@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
+import click
+import os
 from ConfigParser import ConfigParser, NoOptionError
 from datetime import datetime
 from .constants import *
-from .utils import *
+from .utils import extract_dirs, extract_databases
 from .shipper import Shipper
 from .cleaner import Cleaner
 

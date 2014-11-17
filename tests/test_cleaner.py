@@ -62,7 +62,7 @@ class TestCleaner(unittest.TestCase):
 
     def test_months_to_keep(self):
         """Removed dates are between weeks_to_keep and months_to_keep."""
-        to_remove = self.cleaner._filter_level_months_to_keep(
+        to_remove = self.cleaner._filter_months_to_keep(
             self.date_list)
 
         youngest_date_to_compare = 1413244800  # i.e. 2014-10-14 02:00:00
@@ -79,7 +79,7 @@ class TestCleaner(unittest.TestCase):
 
     def test_weeks_to_keep(self):
         """Removed dates are between days_to_keep and weeks_to_keep."""
-        to_remove = self.cleaner._filter_level_weeks_to_keep(
+        to_remove = self.cleaner._filter_weeks_to_keep(
             self.date_list)
 
         youngest_date_to_compare = 1415059200  # i.e. 2014-11-04 01:00:00
