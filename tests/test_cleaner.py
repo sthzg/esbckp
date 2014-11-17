@@ -102,6 +102,7 @@ class TestCleaner(unittest.TestCase):
         self.assertEqual(True, len(to_remove) == 529)
 
     def test_file_deletion(self):
+        """Expected number of files remain on the file system after deltion."""
         create_testfiles(self.date_list)
         self.cleaner.files = self.cleaner._get_files_and_dates()
         file_dates = [x[1] for x in self.cleaner.files]
