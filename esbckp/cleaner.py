@@ -21,7 +21,7 @@ class Cleaner(object):
         """Analyzes outdated files and deletes them from the file system.
 
         By default this command will only output the names of the files
-        that will be deleted. To really issue deletion from the file system,
+        that will be deleted. To actually issue deletion from the file system,
         it needs to be invoked with ``dry_run`` set to False.
 
         :param storage_dir: Directory of files to be analyzed and deleted.
@@ -62,8 +62,8 @@ class Cleaner(object):
         :return:
         """
         cleanup_old = self._filter_older_than_months_to_keep(file_dates)
-        cleanup_months = self._filter_level_months_to_keep(file_dates)
-        cleanup_weeks = self._filter_level_weeks_to_keep(file_dates)
+        cleanup_months = self._filter_months_to_keep(file_dates)
+        cleanup_weeks = self._filter_weeks_to_keep(file_dates)
 
         # To ensure unique indexes we return list(set(...)).
         return list(set(cleanup_old + cleanup_months + cleanup_weeks))
@@ -83,7 +83,7 @@ class Cleaner(object):
 
         return to_remove
 
-    def _filter_level_months_to_keep(self, file_dates):
+    def _filter_months_to_keep(self, file_dates):
         """Returns indexes of dates between weeks_to_keep and months_to_keep
         leaving one backup per month according to day_of_month_to_keep.
 
@@ -111,12 +111,11 @@ class Cleaner(object):
 
         return to_remove
 
-    def _filter_level_weeks_to_keep(self, file_dates):
-        """Returns indexes of dates between days_to_keep and weeks_to_keep
-        leaving one backup per week according to day_of_week_to_keep.
+    def _filter_weeks_to_keep(self, file_dates):
+        """Returns indexes of dates between days_to_keep and weeks_to_keep.
 
-        Additionally ensures that the backup according to
-        day_of_month_to_keep will not be deleted.
+        Leaves one backup per week according to day_of_week_to_keep to ensure
+        that the backup according to day_of_month_to_keep will not be deleted.
 
         :param file_dates: A list of dates in unix timestamp format.
         :param compare_time:  A datetime object to compare against.
