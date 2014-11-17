@@ -7,6 +7,26 @@ from .utils import monthdelta
 
 
 class Cleaner(object):
+    """Provides functionality to remove backups base on configuration.
+
+    The relevant attributes for calculating files to delete are:
+
+    ``days_to_keep``
+        Amount of days to keep daily backups.
+
+    ``weeks_to_keep``
+        Amount of weeks to keep weekly backups.
+
+    ``months_to_keep``
+        Amount of months to keep monthly backups.
+
+    ``day_of_week_to_keep``
+        Weekday 0 (Mon) to 6 (Sun) to use for weekly backups.
+
+    ``day_of_month_to_keep``
+        Calendar day of month to use for monthly backups.
+
+    """
     def __init__(self):
         self.days_to_keep = None
         self.weeks_to_keep = None

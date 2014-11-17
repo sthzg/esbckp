@@ -11,6 +11,11 @@ from .cleaner import Cleaner
 
 
 class Backup(object):
+    """Main application class for backups.
+
+    Builds the main backup object which all subcommands access to retrieve
+    information about ``BackupGroups``.
+    """
     def __init__(self, conf, groups, routines=None):
         if not os.path.exists(os.path.expanduser(conf)):
             raise click.ClickException(ERR_CONFIG_FILE_DOES_NOT_EXIST)
@@ -52,6 +57,19 @@ class Backup(object):
 
 
 class BackupGroup(object):
+    """Provides functionality and configuration for one ``BackupGroup``.
+
+    Backups are bundled in groups. This allows the app to backup many
+    different projects on one server under different namespaces.
+
+    Instead of maintaining one big backup file containing everything on one
+    server, it is possible to manage backups in chunks like project_1,
+    project_2, server_conf, etc.
+
+    Each group may override app defaults, which allows e.g. for shipping
+    different backups to different remote locations or configuring
+    different cleaner rules for different groups.
+    """
     def __init__(self):
         self.backup_storage_dir = None
         self.group_title = None
@@ -112,11 +130,16 @@ class BackupGroup(object):
 
 
 class FileBackupItem(object):
+    """Data object for file backups."""
     def __init__(self):
         self.dir = None
 
 
 class DatabaseBackupItem(object):
+    """Data object for database backups.
+
+    The app currently only supports postgres.
+    """
     def __init__(self, db_string):
         self.db_string = db_string
         self.db_type = None
@@ -127,6 +150,8 @@ class DatabaseBackupItem(object):
 
     def _extract_db_string(self):
         """Validates and extracts the configured database string.
+
+        Database strings look like <db_system>:<db_name>:<db_user>.
 
         :raises: ValueError
         """

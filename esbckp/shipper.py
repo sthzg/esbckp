@@ -4,6 +4,11 @@ import subprocess
 
 
 class Shipper(object):
+    """Ships backups via rsync to remote destination.
+
+    Mostly a small wrapper around the rsync command that will be invoked
+    via ``subprocess.call()``.
+    """
     def __init__(self):
         self.ssh_port = 22
         self.user = None

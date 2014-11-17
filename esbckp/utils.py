@@ -107,6 +107,7 @@ def tar_add_filter(tarinfo):
 
 
 def monthdelta(date, delta):
+    """Provides ability to add/subtract months from dates."""
     m, y = (date.month+delta) % 12, date.year + ((date.month)+delta-1) // 12
     if not m: m = 12
     d = min(date.day, [31,
