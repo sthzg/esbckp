@@ -40,7 +40,6 @@ class Backup(object):
             group = BackupGroup()
             group.group_title = section
             group.base_path = os.path.join(bsd, group.group_title)
-            group.base_name = parser.get(section, 'base_name')
             group.filename_prefix = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
             group.backup_storage_dir = bsd
 
