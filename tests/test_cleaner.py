@@ -5,7 +5,7 @@ import os
 import shutil
 import subprocess
 import unittest
-from easybackup.backups import Cleaner
+from esbckp.backups import Cleaner
 
 
 def create_testfiles(file_dates):

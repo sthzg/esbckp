@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-      Title: easybackup
+      Title: esbckp
      Author: Stephan Herzog (sthzg@gmx.net)
        Date: November 2014
-      Usage: $ easybackups_start
-             $ easybackups_ship
-             $ easybackups_clean
+      Usage: $ esbckp
+             $ esbckp start --help
+             $ esbckp ship --help
+             $ esbckp clean --help
   Platforms: Developed on MacOS X and Cent OS
 
 Description:
@@ -14,12 +15,12 @@ Description:
     file is expected to live in ~/etc/easybackups_conf.ini. Use the ``--conf``
     flag to pass a file.
 
-    Type ``easybackups_start --help`` to learn about command line options.
+    Type ``esbckp --help`` to learn about command line options.
 
     The tool is not daemonized and can be scheduled with cron jobs.
 
 Dependencies:
-    * click
+    * Click
     * colorama
 
 Improvements:
@@ -37,38 +38,40 @@ from datetime import datetime, timedelta
 
 
 # >>>>> Global Todos <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-# TODO(sthzg) Refactor to use subcommands like $ easybackups start.
 # TODO(sthzg) Split to multiple modules and a command package.
 # TODO(sthzg) Add option to encrypt backups.
 # TODO(sthzg) Decide about refactoring utils into classes.
+# TODO(sthzg) Make backup actions pluggable and extendable.
 # TODO(sthzg) Add logging.
 
 
 # >>>>> Strings <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-HELP_CONF = '''
-Location of easybackup configuration file.'''''
+HELP_CONF = (
+    "Location of esbckp configuration file.")
 
-HELP_GROUP = '''
-Specify section names to only backup one or more specific groups. Separate
-section names with ,'''
+HELP_GROUP = (
+    "Specify section names to only backup one or more specific groups. "
+    "Separate section names with commas (,).")
 
-HELP_ROUTINES = '''
-Specify the routines that should be run for this backup. Separate routines
-with comma (,), e.g. --routines=dir,db.'''
+HELP_ROUTINES = (
+    "Specify the routines that should be run for this backup. Separate "
+    "routines with comma (,), e.g. --routines=dir,db.")
 
-HELP_DRYRUN = '''
-By default easybackups_clean will only list the files that would be deleted
-from the file system. To actually delete them, pass --dryrun=False.'''
+HELP_DRYRUN = (
+    "By default easybackups_clean will only list the files that would be "
+    "deleted  from the file system. To actually delete them, pass "
+    "--dryrun=False.")
 
-ERR_CONFIG_FILE_DOES_NOT_EXIST = '''
-Config file does not exist.'''
+ERR_CONFIG_FILE_DOES_NOT_EXIST = (
+    "Config file does not exist.")
 
-ERR_BACK_STORAGE_DOES_NOT_EXIST = '''
-Backup storage directory does not exist at {}'''
+ERR_BACK_STORAGE_DOES_NOT_EXIST = (
+    "Backup storage directory does not exist at {}")
 
-ERR_DB_STRING_LENGTH = '''
-Error with db string {}. It needs to have three tokens separated by a colon
-(:), e.g. postgres:my_database:my_user. Skipping this particular db-backup.'''
+ERR_DB_STRING_LENGTH = (
+    "Error with db string {}. It needs to have three tokens separated by a "
+    "colon (:), e.g. postgres:my_database:my_user. Skipping this particular "
+    "db-backup.")
 
 # >>>>> Globals <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 total_num_files = 0
@@ -76,12 +79,25 @@ current_file_number = 0
 
 
 # >>>>> Commands <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-@click.command()
+@click.group()
+@click.option('--debug/--no-debug', default=False)
+def cli(debug):
+    """Naive and simple app to backup directories and databases.
+
+    Backup targets need to be configured in a config file in INI format. By
+    default, the file is expected to live in ~/etc/easybackups_conf.ini.
+    Use the ``--conf`` flag to pass a file.
+
+    See further help for the available subcommands start, ship and clean.
+    """
+    pass
+
+@cli.command()
 @click.option('--conf', default='~/etc/easybackup_conf.ini', help=HELP_CONF)
 @click.option('--groups', default=None, help=HELP_GROUP)
 @click.option('--routines', default=None, help=HELP_ROUTINES)
 def start(conf, groups, routines):
-    """Starts the backup process."""
+    """Start backups."""
     backup = Backup(conf, groups, routines)
 
     for group in backup.backup_groups:
@@ -92,11 +108,11 @@ def start(conf, groups, routines):
             do_database_backups_for_group(group)
 
 
-@click.command()
+@cli.command()
 @click.option('--conf', default='~/etc/easybackup_conf.ini', help=HELP_CONF)
 @click.option('--groups', default=None, help=HELP_GROUP)
 def ship(conf, groups):
-    """Starts shipping the backups via rsync.
+    """Ship backups via rsync.
 
     If shipper settings are present in the INI file this command rsyncs
     each group folder to the configured target destination.
@@ -110,12 +126,12 @@ def ship(conf, groups):
             group.ship()
 
 
-@click.command()
+@cli.command()
 @click.option('--conf', default='~/etc/easybackup_conf.ini', help=HELP_CONF)
 @click.option('--groups', default=None, help=HELP_GROUP)
 @click.option('--dryrun', default=True, type=bool, help=HELP_DRYRUN)
 def clean(conf, groups, dryrun):
-    """Starts cleaning backups according to cleaner configuration.
+    """Clean outdated backups.
 
     Note that to actually delete the outdated files from the file system, the
     command needs to be invoked with --dryrun=False.
