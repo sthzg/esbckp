@@ -16,7 +16,7 @@ Description:
 
     Type ``easybackups_start --help`` to learn about command line options.
 
-    The tool is not demonized and can be scheduled with cron jobs.
+    The tool is not daemonized and can be scheduled with cron jobs.
 
 Dependencies:
     * click
@@ -56,6 +56,10 @@ section names with ,'''
 HELP_ROUTINES = '''
 Specify the routines that should be run for this backup. Separate routines
 with comma (,), e.g. --routines=dir,db.'''
+
+HELP_DRYRUN = '''
+By default easybackups_clean will only list the files that would be deleted
+from the file system. To actually delete them, pass --dryrun=False.'''
 
 ERR_CONFIG_FILE_DOES_NOT_EXIST = '''
 Config file does not exist.'''
@@ -110,8 +114,12 @@ def ship(conf, groups):
 @click.command()
 @click.option('--conf', default='~/etc/easybackup_conf.ini', help=HELP_CONF)
 @click.option('--groups', default=None, help=HELP_GROUP)
-def clean(conf, groups):
+@click.option('--dryrun', default=True, type=bool, help=HELP_DRYRUN)
+def clean(conf, groups, dryrun):
     """Starts cleaning backups according to cleaner configuration.
+
+    Note that to actually delete the outdated files from the file system, the
+    command needs to be invoked with --dryrun=False.
 
     Due to the support of weeks_to_keep and months_to_keep, there will
     usually be one additional backup in the timespan between days_to_keep
@@ -125,7 +133,7 @@ def clean(conf, groups):
                            length=(len(backup.backup_groups) + 1),
                            label="Groups") as bg:
         for group in bg:
-            group.clean()
+            group.clean(dryrun=dryrun)
 
 
 # >>>>> Utils <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -292,7 +300,7 @@ class BackupGroup(object):
         self.filename_prefix = None
 
     def check_or_create_base_path(self):
-        """Creates ``base_path`` on file system if it does not exists."""
+        """Creates ``base_path`` on file system if it does not exist."""
         if self.base_path and not os.path.exists(self.base_path):
             os.makedirs(self.base_path)
 
@@ -318,11 +326,11 @@ class BackupGroup(object):
         """Returns ``Cleaner`` object from ``section`` or leaves it at None."""
         try:
             cl = Cleaner()
-            cl.days_to_keep = parser.get(section, 'cleaner_days_to_keep')
-            cl.weeks_to_keep = parser.get(section, 'cleaner_weeks_to_keep')
-            cl.months_to_keep = parser.get(section, 'cleaner_months_to_keep')
-            cl.day_of_week_to_keep = parser.get(section, 'cleaner_day_of_week_to_keep')  # NOQA
-            cl.day_of_month_to_keep = parser.get(section, 'cleaner_day_of_month_to_keep')  # NOQA
+            cl.days_to_keep = int(parser.get(section, 'cleaner_days_to_keep'))
+            cl.weeks_to_keep = int(parser.get(section, 'cleaner_weeks_to_keep'))
+            cl.months_to_keep = int(parser.get(section, 'cleaner_months_to_keep'))
+            cl.day_of_week_to_keep = int(parser.get(section, 'cleaner_day_of_week_to_keep'))  # NOQA
+            cl.day_of_month_to_keep = int(parser.get(section, 'cleaner_day_of_month_to_keep'))  # NOQA
 
             self.cleaner = cl
             return self.cleaner
@@ -334,9 +342,9 @@ class BackupGroup(object):
         """Starts shipping via rsync."""
         self.shipper.ship()
 
-    def clean(self):
+    def clean(self, dryrun=True):
         storage_dir = os.path.join(self.backup_storage_dir, self.group_title)
-        self.cleaner.clean(storage_dir)
+        self.cleaner.clean(storage_dir, dryrun)
 
 
 class FileBackupItem(object):
@@ -401,39 +409,75 @@ class Cleaner(object):
         self.storage_dir = None
         self.files = []
         self.file_index_to_delete = []
+        self.compare_time = datetime.now()
 
-    def clean(self, storage_dir):
+    def clean(self, storage_dir, dry_run=True):
+        """Analyzes outdated files and deletes them from the file system.
+
+        By default this command will only output the names of the files
+        that will be deleted. To really issue deletion from the file system,
+        it needs to be invoked with ``dry_run`` set to False.
+
+        :param storage_dir: Directory of files to be analyzed and deleted.
+        :param dry_run: Flag that indicates whether files will be deleted.
+        :return:
+        """
         self.storage_dir = storage_dir
-        self.files = [(os.path.join(storage_dir, f),
-                       os.stat(os.path.join(storage_dir, f)).st_mtime)
-                      for f in os.listdir(storage_dir)]
-
+        self.files = self._get_files_and_dates()
         file_dates = [x[1] for x in self.files]
+        self.file_index_to_delete = self._get_file_indexes_to_delete(file_dates)
+        if not dry_run:
+            self._delete_outdated()
+        else:
+            self._print_outdated()
 
+    def _delete_outdated(self):
+        """Deletes files marked for deletion from the file system."""
+        self._print_outdated()
+        for outdated in sorted(self.file_index_to_delete, reverse=True):
+            os.remove(self.files[outdated][0])
+            pass
+
+    def _print_outdated(self):
+        """Prints all files marked for removal to stdout."""
+        for outdated in sorted(self.file_index_to_delete, reverse=True):
+            print "Marked for removal: {}".format(self.files[outdated][0])
+
+    def _get_files_and_dates(self):
+        """Returns a list of tuples with file path and mtime."""
+        return [(os.path.join(self.storage_dir, f),
+                 os.stat(os.path.join(self.storage_dir, f)).st_mtime)
+                for f in os.listdir(self.storage_dir)]
+
+    def _get_file_indexes_to_delete(self, file_dates):
+        """Returns indexes of files to be deleted.
+
+        :param file_dates: A list of dates in unix timestamp format.
+        :return:
+        """
         cleanup_old = self._filter_older_than_months_to_keep(file_dates)
         cleanup_months = self._filter_level_months_to_keep(file_dates)
         cleanup_weeks = self._filter_level_weeks_to_keep(file_dates)
 
-    def _filter_older_than_months_to_keep(self, file_dates, compare_time=None):
+        # To ensure unique indexes we return list(set(...)).
+        return list(set(cleanup_old + cleanup_months + cleanup_weeks))
+
+    def _filter_older_than_months_to_keep(self, file_dates):
         """Returns indexes of dates that exceed months_to_keep.
 
         :param file_dates: A list of dates in unix timestamp format.
         :param compare_time:  A datetime object to compare against.
         :return: A list of indexes.
         """
-        if not compare_time:
-            compare_time = time.time()
-
-        # Get files older than months_to_keep and mark them for deletion.
         latest_date_to_keep = calendar.timegm(monthdelta(
-            compare_time, self.months_to_keep * -1).timetuple())
+            self.compare_time, self.months_to_keep * -1).timetuple())
 
         to_remove = [idx for idx,val in enumerate(file_dates)
                      if val < latest_date_to_keep]
 
         return to_remove
 
-    def _filter_level_months_to_keep(self, file_dates, compare_time):
+    def _filter_level_months_to_keep(self, file_dates):
         """Returns indexes of dates between weeks_to_keep and months_to_keep
         leaving one backup per month according to day_of_month_to_keep.
 
@@ -441,15 +485,11 @@ class Cleaner(object):
         :param compare_time:  A datetime object to compare against.
         :return: A list of indexes.
         """
-        if not compare_time:
-            compare_time = time.time()
-
-        # Get files older than weeks_to_keep and younger than months_to_keep
         latest_date_to_compare = calendar.timegm(monthdelta(
-            compare_time, self.months_to_keep * -1).timetuple())
+            self.compare_time, self.months_to_keep * -1).timetuple())
 
         youngest_date_to_compare = calendar.timegm(
-            (compare_time - timedelta(weeks=self.weeks_to_keep))
+            (self.compare_time - timedelta(weeks=self.weeks_to_keep))
             .timetuple())
 
         to_remove = list()
@@ -465,7 +505,7 @@ class Cleaner(object):
 
         return to_remove
 
-    def _filter_level_weeks_to_keep(self, file_dates, compare_time):
+    def _filter_level_weeks_to_keep(self, file_dates):
         """Returns indexes of dates between days_to_keep and weeks_to_keep
         leaving one backup per week according to day_of_week_to_keep.
 
@@ -476,15 +516,12 @@ class Cleaner(object):
         :param compare_time:  A datetime object to compare against.
         :return: A list of indexes.
         """
-        if not compare_time:
-            compare_time = time.time()
-
         latest_date_to_compare = calendar.timegm(
-            (compare_time - timedelta(weeks=self.weeks_to_keep))
+            (self.compare_time - timedelta(weeks=self.weeks_to_keep))
             .timetuple())
 
         youngest_date_to_compare = calendar.timegm(
-            (compare_time - timedelta(days=self.days_to_keep))
+            (self.compare_time - timedelta(days=self.days_to_keep))
             .timetuple())
 
         to_remove = list()
