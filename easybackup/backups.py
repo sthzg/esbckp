@@ -32,7 +32,6 @@ import click
 import os
 import subprocess
 import tarfile
-import time
 from ConfigParser import ConfigParser, NoOptionError
 from datetime import datetime, timedelta
 
@@ -133,7 +132,7 @@ def clean(conf, groups, dryrun):
                            length=(len(backup.backup_groups) + 1),
                            label="Groups") as bg:
         for group in bg:
-            group.clean(dryrun=dryrun)
+            group.clean(dry_run=dryrun)
 
 
 # >>>>> Utils <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -342,9 +341,9 @@ class BackupGroup(object):
         """Starts shipping via rsync."""
         self.shipper.ship()
 
-    def clean(self, dryrun=True):
+    def clean(self, dry_run=True):
         storage_dir = os.path.join(self.backup_storage_dir, self.group_title)
-        self.cleaner.clean(storage_dir, dryrun)
+        self.cleaner.clean(storage_dir, dry_run)
 
 
 class FileBackupItem(object):
